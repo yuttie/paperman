@@ -1,4 +1,5 @@
 use std::fs::{self, File};
+use std::io;
 use std::io::prelude::*;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
@@ -60,9 +61,16 @@ enum Command {
 }
 
 fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
+    let mut failed = Vec::new();
     for fp in files {
-        if !fp.is_file() {
-            return Err(format!("{} is not a file", fp.to_str().unwrap()));
+        match file_type(&fp).map_err(|e| e.to_string())? {
+            FileType::Dir => {
+                failed.push((fp.clone(), "file is a directory, which cannot be added"));
+            },
+            FileType::Symlink => {
+                failed.push((fp.clone(), "file is a symlink, which cannot be added"));
+            },
+            FileType::File => (),
         }
 
         let fp = fs::canonicalize(fp).map_err(|e| e.to_string())?;
@@ -77,7 +85,39 @@ fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
         println!("{:?} -> {:?}", fp, relative_path_from(&fp.parent().unwrap(), &to));
         symlink(src, dst);
     }
+
+    if failed.len() > 0 {
+        eprintln!("The following paths are ignored:");
+        for (fp, reason) in failed {
+            eprintln!("* {}\t{}", fp.display(), reason);
+        }
+    }
+
     Ok(())
+}
+
+#[derive(Eq, PartialEq, Debug)]
+enum FileType {
+    Dir,
+    File,
+    Symlink,
+}
+
+fn file_type<P: AsRef<Path>>(path: P) -> io::Result<FileType> {
+    let path = path.as_ref();
+    let metadata = path.symlink_metadata()?;
+    if metadata.file_type().is_dir() {
+        Ok(FileType::Dir)
+    }
+    else if metadata.file_type().is_file() {
+        Ok(FileType::File)
+    }
+    else if metadata.file_type().is_symlink() {
+        Ok(FileType::Symlink)
+    }
+    else {
+        unreachable!()
+    }
 }
 
 fn relative_path_from<P: AsRef<Path>, Q: AsRef<Path>>(base: P, target: Q) -> Result<PathBuf, String> {
@@ -164,5 +204,11 @@ mod tests {
         assert_eq!(relative_path_from("/usr", "/usr/share"), Ok("share".into()));
         assert_eq!(relative_path_from("/usr/", "/usr/share"), Ok("share".into()));
         assert_eq!(relative_path_from("/usr/bin", "/usr/share"), Ok("../share".into()));
+    }
+
+    #[test]
+    fn test_file_type() {
+        assert_eq!(file_type("/").map_err(|e| e.to_string()), Ok(FileType::Dir));
+        assert_eq!(file_type("/bin/echo").map_err(|e| e.to_string()), Ok(FileType::File));
     }
 }
