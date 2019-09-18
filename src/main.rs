@@ -65,9 +65,11 @@ fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
         match file_type(&fp).map_err(|e| e.to_string())? {
             FileType::Dir => {
                 failed.push((fp.clone(), "file is a directory, which cannot be added"));
+                continue;
             },
             FileType::Symlink => {
                 failed.push((fp.clone(), "file is a symlink, which cannot be added"));
+                continue;
             },
             FileType::File => (),
         }
