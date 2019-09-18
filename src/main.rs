@@ -82,11 +82,11 @@ fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
             continue;
         }
         fs::create_dir_all(&config.repo_dir).unwrap();
-        fs::rename(&fp, &to);
+        fs::rename(&fp, &to).unwrap();
 
         // Link
         let link_ref = relative_path_from(&fp.parent().unwrap(), &to)?;
-        unix::fs::symlink(link_ref, fp);
+        unix::fs::symlink(link_ref, fp).unwrap();
     }
 
     if failed.len() > 0 {
@@ -125,7 +125,7 @@ fn file_type<P: AsRef<Path>>(path: P) -> io::Result<FileType> {
 
 fn relative_path_from<P: AsRef<Path>, Q: AsRef<Path>>(base: P, target: Q) -> Result<PathBuf, String> {
     let mut base = to_absolute(base).map_err(|e| e.to_string())?;
-    let mut target = to_absolute(target).map_err(|e| e.to_string())?;
+    let target = to_absolute(target).map_err(|e| e.to_string())?;
 
     let mut count = 0;
     while !target.starts_with(&base) {
