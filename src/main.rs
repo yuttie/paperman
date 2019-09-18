@@ -17,7 +17,6 @@ struct Config {
 fn read_config() -> Result<Config, String> {
     let mut path = dirs::config_dir().ok_or("Failed to obtain the user's config directory")?;
     path.push(concat!(env!("CARGO_PKG_NAME"), ".toml"));
-    println!("{:?}", path);
     let mut file = File::open(path).map_err(|e| e.to_string())?;
     let mut buf = String::new();
     file.read_to_string(&mut buf).map_err(|e| e.to_string())?;
@@ -76,13 +75,11 @@ fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
         let fp = fs::canonicalize(fp).map_err(|e| e.to_string())?;
         let from = fp.as_path();
         let to = config.repo_dir.join(from.file_name().unwrap());
-        println!("{:?} -> {:?}: {:?}", from, to, relative_path_from(&fp.parent().unwrap(), &to));
         fs::create_dir_all(&config.repo_dir).unwrap();
         fs::rename(&from, &to);
 
         let src = relative_path_from(&fp.parent().unwrap(), &to)?;
         let dst = fp.as_path();
-        println!("{:?} -> {:?}", fp, relative_path_from(&fp.parent().unwrap(), &to));
         symlink(src, dst);
     }
 
@@ -155,9 +152,7 @@ fn to_absolute<P: AsRef<Path>>(path: P) -> Result<PathBuf, String> {
 fn main() {
     let opt = Opt::from_args();
     let config = read_config().unwrap();
-    println!("{:?}", config);
 
-    println!("{:?}", opt);
     match opt.cmd {
         Command::Add { files } => {
             add(files, config).unwrap();
