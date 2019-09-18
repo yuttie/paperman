@@ -161,8 +161,8 @@ mod tests {
 
     #[test]
     fn test_relative_path_from() {
-        assert_eq!(relative_path_from("/foo", "/foo/baz"), Ok("baz".into()));
-        assert_eq!(relative_path_from("/foo/", "/foo/baz"), Ok("baz".into()));
-        assert_eq!(relative_path_from("/foo/bar", "/foo/baz"), Ok("../baz".into()));
+        assert_eq!(relative_path_from("/usr", "/usr/share"), Ok("share".into()));
+        assert_eq!(relative_path_from("/usr/", "/usr/share"), Ok("share".into()));
+        assert_eq!(relative_path_from("/usr/bin", "/usr/share"), Ok("../share".into()));
     }
 }
