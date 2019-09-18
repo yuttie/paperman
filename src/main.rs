@@ -1,7 +1,7 @@
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
-use std::os::unix::fs::symlink;
+use std::os::unix;
 use std::path::{Path, PathBuf};
 use std::vec::Vec;
 
@@ -62,6 +62,7 @@ enum Command {
 fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
     let mut failed = Vec::new();
     for fp in files {
+        // Process only a regular file
         match file_type(&fp).map_err(|e| e.to_string())? {
             FileType::Dir => {
                 failed.push((fp.clone(), "file is a directory, which cannot be added"));
@@ -74,15 +75,18 @@ fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
             FileType::File => (),
         }
 
-        let fp = fs::canonicalize(fp).map_err(|e| e.to_string())?;
-        let from = fp.as_path();
-        let to = config.repo_dir.join(from.file_name().unwrap());
+        // Move
+        let to = config.repo_dir.join(fp.file_name().unwrap());
+        if to.exists() {
+            failed.push((fp.clone(), "destination file exists"));
+            continue;
+        }
         fs::create_dir_all(&config.repo_dir).unwrap();
-        fs::rename(&from, &to);
+        fs::rename(&fp, &to);
 
-        let src = relative_path_from(&fp.parent().unwrap(), &to)?;
-        let dst = fp.as_path();
-        symlink(src, dst);
+        // Link
+        let link_ref = relative_path_from(&fp.parent().unwrap(), &to)?;
+        unix::fs::symlink(link_ref, fp);
     }
 
     if failed.len() > 0 {
@@ -120,8 +124,8 @@ fn file_type<P: AsRef<Path>>(path: P) -> io::Result<FileType> {
 }
 
 fn relative_path_from<P: AsRef<Path>, Q: AsRef<Path>>(base: P, target: Q) -> Result<PathBuf, String> {
-    let mut base = fs::canonicalize(base).map_err(|e| e.to_string())?;
-    let mut target = fs::canonicalize(target).map_err(|e| e.to_string())?;
+    let mut base = to_absolute(base).map_err(|e| e.to_string())?;
+    let mut target = to_absolute(target).map_err(|e| e.to_string())?;
 
     let mut count = 0;
     while !target.starts_with(&base) {
