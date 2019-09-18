@@ -86,7 +86,7 @@ fn add(files: Vec<PathBuf>, config: Config) -> Result<(), String> {
     if failed.len() > 0 {
         eprintln!("The following paths are ignored:");
         for (fp, reason) in failed {
-            eprintln!("* {}\t{}", fp.display(), reason);
+            eprintln!("{}\t{}", fp.display(), reason);
         }
     }
 
